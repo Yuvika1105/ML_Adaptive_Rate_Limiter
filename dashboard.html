@@ -1,0 +1,1390 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ML Rate Limiter — Control Center</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+        :root {
+            --bg: #080c14;
+            --surface: #0d1520;
+            --surface2: #111d2e;
+            --border: #1a2d42;
+            --accent: #00e5ff;
+            --accent2: #ff3d71;
+            --accent3: #00e096;
+            --warn: #ffaa00;
+            --text: #e2eaf4;
+            --muted: #4a6a8a;
+            --glow: 0 0 20px rgba(0, 229, 255, 0.15);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Animated grid background */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(0, 229, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 229, 255, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* HEADER */
+        header {
+            border-bottom: 1px solid var(--border);
+            padding: 16px 0;
+            background: rgba(8, 12, 20, 0.95);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+
+        .header-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 36px;
+            height: 36px;
+            background: var(--accent);
+            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: pulse-glow 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-glow {
+
+            0%,
+            100% {
+                box-shadow: 0 0 10px rgba(0, 229, 255, 0.5);
+            }
+
+            50% {
+                box-shadow: 0 0 30px rgba(0, 229, 255, 0.9);
+            }
+        }
+
+        .logo-text {
+            font-size: 20px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        .logo-text span {
+            color: var(--accent);
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(0, 224, 150, 0.1);
+            border: 1px solid rgba(0, 224, 150, 0.3);
+            border-radius: 20px;
+            padding: 6px 14px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--accent3);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent3);
+            animation: blink 1.5s ease-in-out infinite;
+        }
+
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.2;
+            }
+        }
+
+        .header-time {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        /* MAIN LAYOUT */
+        main {
+            padding: 24px 0 40px;
+        }
+
+        /* ALERT BANNER */
+        .alert-banner {
+            background: rgba(255, 61, 113, 0.1);
+            border: 1px solid rgba(255, 61, 113, 0.4);
+            border-radius: 8px;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 24px;
+            animation: slide-in 0.5s ease;
+        }
+
+        @keyframes slide-in {
+            from {
+                transform: translateY(-10px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .alert-icon {
+            font-size: 18px;
+        }
+
+        .alert-text {
+            font-size: 13px;
+            color: var(--accent2);
+            flex: 1;
+        }
+
+        .alert-dismiss {
+            background: none;
+            border: 1px solid rgba(255, 61, 113, 0.4);
+            color: var(--accent2);
+            border-radius: 4px;
+            padding: 4px 10px;
+            cursor: pointer;
+            font-size: 11px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* STAT CARDS */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+            transition: border-color 0.3s;
+        }
+
+        .stat-card:hover {
+            border-color: var(--accent);
+            box-shadow: var(--glow);
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+        }
+
+        .stat-card.blue::before {
+            background: var(--accent);
+        }
+
+        .stat-card.red::before {
+            background: var(--accent2);
+        }
+
+        .stat-card.green::before {
+            background: var(--accent3);
+        }
+
+        .stat-card.yellow::before {
+            background: var(--warn);
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .stat-value {
+            font-size: 36px;
+            font-weight: 800;
+            line-height: 1;
+            margin-bottom: 6px;
+        }
+
+        .stat-card.blue .stat-value {
+            color: var(--accent);
+        }
+
+        .stat-card.red .stat-value {
+            color: var(--accent2);
+        }
+
+        .stat-card.green .stat-value {
+            color: var(--accent3);
+        }
+
+        .stat-card.yellow .stat-value {
+            color: var(--warn);
+        }
+
+        .stat-sub {
+            font-size: 11px;
+            color: var(--muted);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .stat-trend {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 11px;
+            font-family: 'JetBrains Mono', monospace;
+            padding: 3px 8px;
+            border-radius: 4px;
+        }
+
+        .trend-up {
+            background: rgba(0, 224, 150, 0.15);
+            color: var(--accent3);
+        }
+
+        .trend-down {
+            background: rgba(255, 61, 113, 0.15);
+            color: var(--accent2);
+        }
+
+        /* MAIN PANELS */
+        .panels-row {
+            display: grid;
+            grid-template-columns: 1.6fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .panel-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .panel-title {
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text);
+        }
+
+        .panel-badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            background: rgba(0, 229, 255, 0.1);
+            color: var(--accent);
+            border: 1px solid rgba(0, 229, 255, 0.2);
+        }
+
+        .panel-body {
+            padding: 20px;
+        }
+
+        /* TRAFFIC CHART */
+        .chart-area {
+            position: relative;
+            height: 200px;
+            margin-bottom: 12px;
+        }
+
+        canvas {
+            width: 100% !important;
+        }
+
+        .chart-legend {
+            display: flex;
+            gap: 20px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--muted);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .legend-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        /* GAUGE */
+        .gauge-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px 0;
+        }
+
+        .gauge-wrap {
+            position: relative;
+            width: 180px;
+            height: 100px;
+            margin-bottom: 16px;
+        }
+
+        .gauge-svg {
+            width: 100%;
+        }
+
+        .gauge-value-text {
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+        }
+
+        .gauge-number {
+            font-size: 32px;
+            font-weight: 800;
+            color: var(--accent3);
+            display: block;
+            line-height: 1;
+        }
+
+        .gauge-label {
+            font-size: 10px;
+            color: var(--muted);
+            font-family: 'JetBrains Mono', monospace;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .model-stats {
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 8px;
+        }
+
+        .model-stat {
+            background: var(--surface2);
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .model-stat-val {
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--accent);
+            display: block;
+        }
+
+        .model-stat-lbl {
+            font-size: 10px;
+            color: var(--muted);
+            font-family: 'JetBrains Mono', monospace;
+            text-transform: uppercase;
+        }
+
+        /* BOTTOM ROW */
+        .bottom-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 16px;
+        }
+
+        /* DECISION FEED */
+        .feed {
+            max-height: 280px;
+            overflow-y: auto;
+        }
+
+        .feed::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .feed::-webkit-scrollbar-track {
+            background: var(--surface2);
+        }
+
+        .feed::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 2px;
+        }
+
+        .feed-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+            animation: fade-in 0.4s ease;
+        }
+
+        @keyframes fade-in {
+            from {
+                opacity: 0;
+                transform: translateX(-6px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .feed-item:last-child {
+            border-bottom: none;
+        }
+
+        .feed-status {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            margin-top: 5px;
+            flex-shrink: 0;
+        }
+
+        .feed-status.allow {
+            background: var(--accent3);
+        }
+
+        .feed-status.block {
+            background: var(--accent2);
+        }
+
+        .feed-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .feed-endpoint {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--text);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .feed-reason {
+            font-size: 11px;
+            color: var(--muted);
+            margin-top: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .feed-meta {
+            text-align: right;
+            flex-shrink: 0;
+        }
+
+        .feed-decision {
+            font-size: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 3px;
+            display: block;
+            margin-bottom: 3px;
+        }
+
+        .feed-decision.allow {
+            color: var(--accent3);
+            background: rgba(0, 224, 150, 0.1);
+        }
+
+        .feed-decision.block {
+            color: var(--accent2);
+            background: rgba(255, 61, 113, 0.1);
+        }
+
+        .feed-time {
+            font-size: 10px;
+            color: var(--muted);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* FEATURE IMPORTANCE */
+        .feature-bars {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .feature-bar-item {}
+
+        .feature-bar-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 12px;
+        }
+
+        .feature-name {
+            color: var(--text);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+        }
+
+        .feature-pct {
+            color: var(--muted);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+        }
+
+        .feature-track {
+            height: 6px;
+            background: var(--surface2);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .feature-fill {
+            height: 100%;
+            border-radius: 3px;
+            background: linear-gradient(90deg, var(--accent), var(--accent3));
+            transition: width 1s ease;
+        }
+
+        /* ATTACK MAP */
+        .attack-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .attack-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            background: var(--surface2);
+            border-radius: 8px;
+            border-left: 3px solid var(--accent2);
+        }
+
+        .attack-type {
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .attack-info {
+            flex: 1;
+        }
+
+        .attack-name {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 2px;
+        }
+
+        .attack-detail {
+            font-size: 11px;
+            color: var(--muted);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .attack-count {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--accent2);
+        }
+
+        /* CONTROLS */
+        .controls-row {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+
+        .control-btn {
+            padding: 8px 18px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .control-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            box-shadow: var(--glow);
+        }
+
+        .control-btn.danger:hover {
+            border-color: var(--accent2);
+            color: var(--accent2);
+            box-shadow: 0 0 20px rgba(255, 61, 113, 0.15);
+        }
+
+        .control-btn.active {
+            background: rgba(0, 229, 255, 0.1);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        /* SLIDER CONTROL */
+        .slider-control {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px 16px;
+        }
+
+        .slider-label {
+            font-size: 12px;
+            color: var(--muted);
+            font-family: 'JetBrains Mono', monospace;
+            white-space: nowrap;
+        }
+
+        input[type=range] {
+            -webkit-appearance: none;
+            height: 4px;
+            background: var(--border);
+            border-radius: 2px;
+            outline: none;
+            width: 100px;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+        }
+
+        .slider-val {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--accent);
+            min-width: 35px;
+        }
+
+        /* TOOLTIP */
+        .tooltip-box {
+            position: absolute;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            pointer-events: none;
+            z-index: 100;
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <div class="container">
+            <div class="header-inner">
+                <div class="logo">
+                    <div class="logo-icon"></div>
+                    <span class="logo-text">ML Rate<span>Shield</span></span>
+                </div>
+                <div class="status-badge">
+                    <div class="status-dot"></div>
+                    SYSTEM ACTIVE — MODELS LOADED
+                </div>
+                <div class="header-time" id="clock">—</div>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <div class="container">
+
+            <!-- Alert -->
+            <div class="alert-banner" id="alertBanner">
+                <span class="alert-icon">⚠️</span>
+                <span class="alert-text" id="alertText">ATTACK DETECTED: Credential stuffing attempt from IP range
+                    10.0.x.x — 847 requests blocked in last 60 seconds</span>
+                <button class="alert-dismiss"
+                    onclick="document.getElementById('alertBanner').style.display='none'">DISMISS</button>
+            </div>
+
+            <!-- Controls -->
+            <div class="controls-row">
+                <button class="control-btn active" id="btnLive" onclick="toggleLive()">⬤ LIVE</button>
+                <button class="control-btn" onclick="triggerAttack()">🎯 SIMULATE ATTACK</button>
+                <button class="control-btn" onclick="triggerFlashSale()">⚡ FLASH SALE MODE</button>
+                <button class="control-btn danger" onclick="resetSystem()">↺ RESET</button>
+                <div class="slider-control">
+                    <span class="slider-label">BASE LIMIT:</span>
+                    <input type="range" min="10" max="500" value="100" id="baseLimitSlider"
+                        oninput="updateBaseLimit(this.value)">
+                    <span class="slider-val" id="baseLimitVal">100</span>
+                </div>
+                <div class="slider-control">
+                    <span class="slider-label">SENSITIVITY:</span>
+                    <input type="range" min="1" max="10" value="5" id="sensitivitySlider"
+                        oninput="updateSensitivity(this.value)">
+                    <span class="slider-val" id="sensitivityVal">5</span>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="stats-grid">
+                <div class="stat-card blue">
+                    <div class="stat-label">Total Requests</div>
+                    <div class="stat-value" id="statTotal">0</div>
+                    <div class="stat-sub">last 60 seconds</div>
+                    <span class="stat-trend trend-up" id="trendTotal">+0%</span>
+                </div>
+                <div class="stat-card green">
+                    <div class="stat-label">Allowed</div>
+                    <div class="stat-value" id="statAllowed">0</div>
+                    <div class="stat-sub">legitimate traffic</div>
+                    <span class="stat-trend trend-up" id="trendAllowed">—</span>
+                </div>
+                <div class="stat-card red">
+                    <div class="stat-label">Blocked</div>
+                    <div class="stat-value" id="statBlocked">0</div>
+                    <div class="stat-sub">malicious / exceeded</div>
+                    <span class="stat-trend trend-down" id="trendBlocked">—</span>
+                </div>
+                <div class="stat-card yellow">
+                    <div class="stat-label">Adaptive Limit</div>
+                    <div class="stat-value" id="statLimit">100</div>
+                    <div class="stat-sub">req / min (current)</div>
+                    <span class="stat-trend" id="trendLimit">—</span>
+                </div>
+            </div>
+
+            <!-- Main Panels -->
+            <div class="panels-row">
+                <!-- Traffic Chart -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <span class="panel-title">Live Traffic Monitor</span>
+                        <span class="panel-badge" id="trafficStatus">NORMAL</span>
+                    </div>
+                    <div class="panel-body">
+                        <div class="chart-area">
+                            <canvas id="trafficChart" height="200"></canvas>
+                        </div>
+                        <div class="chart-legend">
+                            <div class="legend-item">
+                                <div class="legend-dot" style="background:#00e5ff"></div> Total Requests
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-dot" style="background:#00e096"></div> Allowed
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-dot" style="background:#ff3d71"></div> Blocked
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-dot" style="background:#ffaa00"></div> Adaptive Limit
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ML Model Gauge -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <span class="panel-title">ML Model Status</span>
+                        <span class="panel-badge">LSTM + ISO FOREST</span>
+                    </div>
+                    <div class="panel-body">
+                        <div class="gauge-container">
+                            <div class="gauge-wrap">
+                                <svg class="gauge-svg" viewBox="0 0 200 110">
+                                    <!-- Track -->
+                                    <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#1a2d42"
+                                        stroke-width="14" stroke-linecap="round" />
+                                    <!-- Fill -->
+                                    <path id="gaugeFill" d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#00e096"
+                                        stroke-width="14" stroke-linecap="round" stroke-dasharray="251.2"
+                                        stroke-dashoffset="63" />
+                                    <!-- Markers -->
+                                    <text x="14" y="118" fill="#4a6a8a" font-size="10" font-family="Space Mono">0</text>
+                                    <text x="93" y="28" fill="#4a6a8a" font-size="10" font-family="Space Mono">50</text>
+                                    <text x="175" y="118" fill="#4a6a8a" font-size="10"
+                                        font-family="Space Mono">100</text>
+                                </svg>
+                                <div class="gauge-value-text">
+                                    <span class="gauge-number" id="accuracyVal">94</span>
+                                    <span class="gauge-label">ACCURACY %</span>
+                                </div>
+                            </div>
+                            <div class="model-stats">
+                                <div class="model-stat">
+                                    <span class="model-stat-val" id="precisionVal">93.8%</span>
+                                    <span class="model-stat-lbl">Precision</span>
+                                </div>
+                                <div class="model-stat">
+                                    <span class="model-stat-val" id="recallVal">100%</span>
+                                    <span class="model-stat-lbl">Recall</span>
+                                </div>
+                                <div class="model-stat">
+                                    <span class="model-stat-val" id="fpVal">5.9%</span>
+                                    <span class="model-stat-lbl">False Pos.</span>
+                                </div>
+                                <div class="model-stat">
+                                    <span class="model-stat-val" id="fnVal">0.0%</span>
+                                    <span class="model-stat-lbl">False Neg.</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bottom Row -->
+            <div class="bottom-row">
+
+                <!-- Live Decision Feed -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <span class="panel-title">Decision Feed</span>
+                        <span class="panel-badge" id="feedCount">0 decisions</span>
+                    </div>
+                    <div class="panel-body" style="padding:12px 20px">
+                        <div class="feed" id="decisionFeed"></div>
+                    </div>
+                </div>
+
+                <!-- Feature Importance -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <span class="panel-title">Feature Importance</span>
+                        <span class="panel-badge">TOP SIGNALS</span>
+                    </div>
+                    <div class="panel-body">
+                        <div class="feature-bars" id="featureBars"></div>
+                    </div>
+                </div>
+
+                <!-- Attack Types -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <span class="panel-title">Attack Detection</span>
+                        <span class="panel-badge" id="attackCount">0 patterns</span>
+                    </div>
+                    <div class="panel-body">
+                        <div class="attack-list" id="attackList"></div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+    <script>
+        // ═══════════════════════════════════════════════
+        // STATE
+        // ═══════════════════════════════════════════════
+        let isLive = true;
+        let baseLimit = 100;
+        let sensitivity = 5;
+        let totalDecisions = 0;
+        let mode = 'normal'; // normal | attack | flash_sale
+        let attackTimeout = null;
+
+        const state = {
+            total: 0,
+            allowed: 0,
+            blocked: 0,
+            limit: 100,
+            anomalyScore: 0.1,
+            attacks: {
+                'DDoS / Flood': { count: 0, icon: '🌊' },
+                'Credential Stuffing': { count: 0, icon: '🔑' },
+                'Bot Scraping': { count: 0, icon: '🤖' },
+                'Rapid Checkout': { count: 0, icon: '🛒' },
+            }
+        };
+
+        // Chart data
+        const maxPoints = 30;
+        const chartData = {
+            labels: Array(maxPoints).fill(''),
+            total: Array(maxPoints).fill(0),
+            allowed: Array(maxPoints).fill(0),
+            blocked: Array(maxPoints).fill(0),
+            limit: Array(maxPoints).fill(100),
+        };
+
+        // ═══════════════════════════════════════════════
+        // CHART SETUP
+        // ═══════════════════════════════════════════════
+        const ctx = document.getElementById('trafficChart').getContext('2d');
+        const trafficChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: chartData.labels,
+                datasets: [
+                    {
+                        label: 'Total',
+                        data: chartData.total,
+                        borderColor: '#00e5ff',
+                        backgroundColor: 'rgba(0,229,255,0.05)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0,
+                    },
+                    {
+                        label: 'Allowed',
+                        data: chartData.allowed,
+                        borderColor: '#00e096',
+                        backgroundColor: 'transparent',
+                        borderWidth: 1.5,
+                        fill: false,
+                        tension: 0.4,
+                        pointRadius: 0,
+                        borderDash: [],
+                    },
+                    {
+                        label: 'Blocked',
+                        data: chartData.blocked,
+                        borderColor: '#ff3d71',
+                        backgroundColor: 'rgba(255,61,113,0.05)',
+                        borderWidth: 1.5,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0,
+                    },
+                    {
+                        label: 'Limit',
+                        data: chartData.limit,
+                        borderColor: '#ffaa00',
+                        backgroundColor: 'transparent',
+                        borderWidth: 1,
+                        fill: false,
+                        tension: 0,
+                        pointRadius: 0,
+                        borderDash: [4, 4],
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 300 },
+                plugins: { legend: { display: false }, tooltip: { enabled: true } },
+                scales: {
+                    x: {
+                        display: false,
+                        grid: { display: false }
+                    },
+                    y: {
+                        grid: {
+                            color: 'rgba(26,45,66,0.8)',
+                            drawBorder: false,
+                        },
+                        ticks: {
+                            color: '#4a6a8a',
+                            font: { family: 'JetBrains Mono', size: 10 },
+                            maxTicksLimit: 5,
+                        }
+                    }
+                }
+            }
+        });
+
+        // ═══════════════════════════════════════════════
+        // CLOCK
+        // ═══════════════════════════════════════════════
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('clock').textContent =
+                now.toLocaleTimeString('en-US', { hour12: false }) +
+                ' — ' + now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // ═══════════════════════════════════════════════
+        // FEATURE IMPORTANCE DATA
+        // ═══════════════════════════════════════════════
+        const features = [
+            { name: 'ip_concentration', pct: 73.9 },
+            { name: 'request_count', pct: 60.5 },
+            { name: 'spike_ratio', pct: 51.1 },
+            { name: 'user_concentration', pct: 50.3 },
+            { name: 'hour_cos', pct: 47.2 },
+            { name: 'p95_response_time', pct: 44.6 },
+        ];
+
+        function renderFeatures() {
+            const container = document.getElementById('featureBars');
+            container.innerHTML = features.map(f => `
+    <div class="feature-bar-item">
+      <div class="feature-bar-label">
+        <span class="feature-name">${f.name}</span>
+        <span class="feature-pct">${f.pct.toFixed(1)}%</span>
+      </div>
+      <div class="feature-track">
+        <div class="feature-fill" style="width:${f.pct}%"></div>
+      </div>
+    </div>
+  `).join('');
+        }
+        renderFeatures();
+
+        // ═══════════════════════════════════════════════
+        // DECISION SIMULATION
+        // ═══════════════════════════════════════════════
+        const endpoints = ['/api/products', '/api/cart', '/api/checkout', '/api/payment', '/api/auth'];
+        const reasons = {
+            allow: ['Normal traffic pattern', 'Within limit', 'Low anomaly score', 'Trusted user pattern'],
+            block: [
+                'HIGH ANOMALY — IP concentration',
+                'Traffic spike detected',
+                'Bot pattern: rapid checkout',
+                'Credential stuffing detected',
+                'Exceeded adaptive limit',
+                'Anomaly score: 0.87'
+            ]
+        };
+        const userIds = ['U1234', 'U5678', 'U9012', 'BOT_01', 'BOT_02', 'U3456', 'U7890'];
+
+        function generateDecision() {
+            const isAttack = mode === 'attack' ? Math.random() < 0.7 : Math.random() < 0.08;
+            const isFlash = mode === 'flash_sale';
+            const endpoint = endpoints[Math.floor(Math.random() * endpoints.length)];
+            const userId = userIds[Math.floor(Math.random() * userIds.length)];
+
+            let requestCount, blocked;
+            if (isAttack) {
+                requestCount = baseLimit * (2 + Math.random() * 5);
+                blocked = true;
+            } else if (isFlash) {
+                requestCount = baseLimit * (0.8 + Math.random() * 2.4);
+                blocked = requestCount > state.limit;
+            } else {
+                requestCount = baseLimit * (0.2 + Math.random() * 0.9);
+                blocked = false;
+            }
+
+            const reason = blocked
+                ? reasons.block[Math.floor(Math.random() * reasons.block.length)]
+                : reasons.allow[Math.floor(Math.random() * reasons.allow.length)];
+
+            // Update attack counts
+            if (blocked) {
+                if (reason.includes('IP concentration') || reason.includes('spike')) {
+                    state.attacks['DDoS / Flood'].count++;
+                } else if (reason.includes('Credential')) {
+                    state.attacks['Credential Stuffing'].count++;
+                } else if (reason.includes('rapid checkout')) {
+                    state.attacks['Rapid Checkout'].count++;
+                } else {
+                    state.attacks['Bot Scraping'].count++;
+                }
+            }
+
+            return { endpoint, userId, blocked, reason, requestCount: Math.round(requestCount) };
+        }
+
+        function addFeedItem(decision) {
+            const feed = document.getElementById('decisionFeed');
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('en-US', { hour12: false });
+
+            const item = document.createElement('div');
+            item.className = 'feed-item';
+            item.innerHTML = `
+    <div class="feed-status ${decision.blocked ? 'block' : 'allow'}"></div>
+    <div class="feed-info">
+      <div class="feed-endpoint">${decision.userId} → ${decision.endpoint}</div>
+      <div class="feed-reason">${decision.reason}</div>
+    </div>
+    <div class="feed-meta">
+      <span class="feed-decision ${decision.blocked ? 'block' : 'allow'}">${decision.blocked ? 'BLOCK' : 'ALLOW'}</span>
+      <span class="feed-time">${timeStr}</span>
+    </div>
+  `;
+
+            feed.insertBefore(item, feed.firstChild);
+            if (feed.children.length > 50) feed.removeChild(feed.lastChild);
+
+            totalDecisions++;
+            document.getElementById('feedCount').textContent = `${totalDecisions} decisions`;
+        }
+
+        function renderAttacks() {
+            const container = document.getElementById('attackList');
+            const total = Object.values(state.attacks).reduce((a, b) => a + b.count, 0);
+            document.getElementById('attackCount').textContent = `${total} blocked`;
+
+            container.innerHTML = Object.entries(state.attacks).map(([name, data]) => `
+    <div class="attack-item">
+      <div class="attack-type">${data.icon}</div>
+      <div class="attack-info">
+        <div class="attack-name">${name}</div>
+        <div class="attack-detail">${data.count > 0 ? 'Active threat' : 'No detections'}</div>
+      </div>
+      <div class="attack-count">${data.count}</div>
+    </div>
+  `).join('');
+        }
+
+        // ═══════════════════════════════════════════════
+        // MAIN TICK
+        // ═══════════════════════════════════════════════
+        function tick() {
+            if (!isLive) return;
+
+            // Generate batch of requests
+            const batchSize = mode === 'attack' ? 15 : mode === 'flash_sale' ? 25 : 8;
+            let batchTotal = 0, batchAllowed = 0, batchBlocked = 0;
+
+            for (let i = 0; i < batchSize; i++) {
+                const d = generateDecision();
+                addFeedItem(d);
+                batchTotal++;
+                if (d.blocked) batchBlocked++;
+                else batchAllowed++;
+            }
+
+            // Update state
+            state.total += batchTotal;
+            state.allowed += batchAllowed;
+            state.blocked += batchBlocked;
+
+            // Calculate adaptive limit
+            const blockedRatio = batchBlocked / batchTotal;
+            const targetLimit = mode === 'attack'
+                ? Math.max(10, baseLimit * (1 - blockedRatio * sensitivity * 0.15))
+                : mode === 'flash_sale'
+                    ? baseLimit * 2
+                    : baseLimit * (0.9 + Math.random() * 0.2);
+
+            state.limit = Math.round(0.3 * targetLimit + 0.7 * state.limit);
+
+            // Update chart
+            chartData.total.push(batchTotal * 8);
+            chartData.allowed.push(batchAllowed * 8);
+            chartData.blocked.push(batchBlocked * 8);
+            chartData.limit.push(state.limit);
+            chartData.labels.push('');
+            ['total', 'allowed', 'blocked', 'limit'].forEach(k => {
+                if (chartData[k].length > maxPoints) chartData[k].shift();
+            });
+            if (chartData.labels.length > maxPoints) chartData.labels.shift();
+
+            trafficChart.update();
+
+            // Update stats
+            document.getElementById('statTotal').textContent = state.total.toLocaleString();
+            document.getElementById('statAllowed').textContent = state.allowed.toLocaleString();
+            document.getElementById('statBlocked').textContent = state.blocked.toLocaleString();
+            document.getElementById('statLimit').textContent = state.limit;
+
+            // Trends
+            const blockPct = ((state.blocked / state.total) * 100).toFixed(1);
+            document.getElementById('trendBlocked').textContent = `${blockPct}% rate`;
+            document.getElementById('trendBlocked').className = `stat-trend ${parseFloat(blockPct) > 20 ? 'trend-down' : 'trend-up'}`;
+
+            const allowPct = ((state.allowed / state.total) * 100).toFixed(1);
+            document.getElementById('trendAllowed').textContent = `${allowPct}%`;
+            document.getElementById('trendTotal').textContent = mode === 'attack' ? '⚠ UNDER ATTACK' : '+normal';
+
+            // Limit trend
+            const limitTrend = document.getElementById('trendLimit');
+            if (state.limit < baseLimit * 0.8) {
+                limitTrend.textContent = '↓ reducing';
+                limitTrend.className = 'stat-trend trend-down';
+            } else if (state.limit > baseLimit * 1.2) {
+                limitTrend.textContent = '↑ expanding';
+                limitTrend.className = 'stat-trend trend-up';
+            } else {
+                limitTrend.textContent = '→ stable';
+                limitTrend.className = 'stat-trend';
+            }
+
+            // Status badge
+            const badge = document.getElementById('trafficStatus');
+            if (mode === 'attack') {
+                badge.textContent = '🚨 UNDER ATTACK';
+                badge.style.background = 'rgba(255,61,113,0.2)';
+                badge.style.color = '#ff3d71';
+                badge.style.borderColor = 'rgba(255,61,113,0.4)';
+            } else if (mode === 'flash_sale') {
+                badge.textContent = '⚡ FLASH SALE';
+                badge.style.background = 'rgba(255,170,0,0.2)';
+                badge.style.color = '#ffaa00';
+                badge.style.borderColor = 'rgba(255,170,0,0.4)';
+            } else {
+                badge.textContent = 'NORMAL';
+                badge.style.background = 'rgba(0,229,255,0.1)';
+                badge.style.color = '#00e5ff';
+                badge.style.borderColor = 'rgba(0,229,255,0.2)';
+            }
+
+            // Update accuracy (simulate gradual improvement)
+            const accuracy = Math.min(99, 94 + Math.random() * 2);
+            document.getElementById('accuracyVal').textContent = accuracy.toFixed(0);
+            const gaugeOffset = 251.2 - (accuracy / 100) * 251.2;
+            document.getElementById('gaugeFill').setAttribute('stroke-dashoffset', gaugeOffset);
+
+            // Render attacks
+            renderAttacks();
+        }
+
+        // ═══════════════════════════════════════════════
+        // CONTROLS
+        // ═══════════════════════════════════════════════
+        function toggleLive() {
+            isLive = !isLive;
+            const btn = document.getElementById('btnLive');
+            btn.textContent = isLive ? '⬤ LIVE' : '⏸ PAUSED';
+            btn.className = isLive ? 'control-btn active' : 'control-btn';
+        }
+
+        function triggerAttack() {
+            mode = 'attack';
+            document.getElementById('alertBanner').style.display = 'flex';
+            document.getElementById('alertText').textContent =
+                'ATTACK DETECTED: DDoS attempt from multiple IP ranges — ML model adapting limits in real-time';
+            if (attackTimeout) clearTimeout(attackTimeout);
+            attackTimeout = setTimeout(() => { mode = 'normal'; }, 15000);
+        }
+
+        function triggerFlashSale() {
+            mode = 'flash_sale';
+            document.getElementById('alertBanner').style.display = 'flex';
+            document.getElementById('alertText').textContent =
+                'FLASH SALE MODE: LSTM predicted traffic surge — limits proactively increased to 200 req/min';
+            document.getElementById('alertBanner').style.background = 'rgba(255,170,0,0.1)';
+            document.getElementById('alertBanner').style.borderColor = 'rgba(255,170,0,0.4)';
+            document.getElementById('alertText').style.color = '#ffaa00';
+            if (attackTimeout) clearTimeout(attackTimeout);
+            attackTimeout = setTimeout(() => {
+                mode = 'normal';
+                document.getElementById('alertBanner').style.background = '';
+                document.getElementById('alertBanner').style.borderColor = '';
+                document.getElementById('alertText').style.color = '';
+            }, 20000);
+        }
+
+        function resetSystem() {
+            mode = 'normal';
+            state.total = 0; state.allowed = 0; state.blocked = 0; state.limit = baseLimit;
+            Object.keys(state.attacks).forEach(k => state.attacks[k].count = 0);
+            totalDecisions = 0;
+            chartData.total.fill(0); chartData.allowed.fill(0);
+            chartData.blocked.fill(0); chartData.limit.fill(baseLimit);
+            document.getElementById('decisionFeed').innerHTML = '';
+            document.getElementById('alertBanner').style.display = 'none';
+            trafficChart.update();
+        }
+
+        function updateBaseLimit(val) {
+            baseLimit = parseInt(val);
+            document.getElementById('baseLimitVal').textContent = val;
+        }
+
+        function updateSensitivity(val) {
+            sensitivity = parseInt(val);
+            document.getElementById('sensitivityVal').textContent = val;
+        }
+
+        // ═══════════════════════════════════════════════
+        // START
+        // ═══════════════════════════════════════════════
+        setInterval(tick, 1200);
+        tick();
+    </script>
+</body>
+
+</html>

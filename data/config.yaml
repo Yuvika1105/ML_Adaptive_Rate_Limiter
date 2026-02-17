@@ -1,0 +1,67 @@
+# ML-Guided API Gateway Rate Limiting Configuration
+
+# Data Generation Settings
+data_generation:
+  normal_traffic_rate: 100
+  flash_sale_traffic_rate: 2000
+  bot_traffic_rate: 500
+  duration_hours: 24
+  flash_sale_duration_min: 30
+
+# ML Model Settings
+ml_models:
+  lstm:
+    sequence_length: 60
+    units: 64
+    dropout: 0.2
+    epochs: 50
+    batch_size: 32
+    learning_rate: 0.001
+    
+  isolation_forest:
+    contamination: 0.1
+    n_estimators: 100
+    max_samples: 256
+    random_state: 42
+    
+  feature_engineering:
+    window_seconds: 60
+    rolling_windows: [5, 10, 30]
+
+# Rate Limiting Settings
+rate_limiting:
+  base_limit: 100
+  min_limit: 10
+  max_limit: 1000
+  adaptation_speed: 0.2
+  lstm_weight: 0.6
+  anomaly_weight: 0.4
+  fairness_beta: 0.3
+  reputation_weight: 0.5
+  flash_sale_multiplier: 2.0
+  bot_penalty: 0.1
+
+# API Gateway Settings
+gateway:
+  host: "0.0.0.0"
+  port: 8000
+  workers: 4
+  log_level: "info"
+  endpoints:
+    - "/api/products"
+    - "/api/cart"
+    - "/api/checkout"
+    - "/api/payment"
+
+# Monitoring
+monitoring:
+  enable_prometheus: true
+  prometheus_port: 9090
+  log_file: "logs/gateway.log"
+
+# Experimental Settings
+experiments:
+  train_test_split: 0.8
+  validation_split: 0.2
+  random_seed: 42
+  n_comparison_runs: 10
