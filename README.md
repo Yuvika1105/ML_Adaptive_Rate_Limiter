@@ -240,9 +240,6 @@ MIT License - see [LICENSE](LICENSE) for details
 
 
 If this project helped you, please ⭐ star it!
-
-[![Star History Chart](https://api.star-history.com/svg?repos=YOUR_USERNAME/ml-adaptive-rate-limiter&type=Date)](https://star-history.com/#YOUR_USERNAME/ml-adaptive-rate-limiter&Date)
-
 ---
 
 <div align="center">
